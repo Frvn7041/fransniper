@@ -2,7 +2,7 @@ name: Vigilar disponibilidad en GAME
 
 on:
   schedule:
-    # Cada 30 minutos, todo el día. Los horarios de GitHub Actions van en UTC.
+    # Cada 10 minutos, todo el día. Los horarios de GitHub Actions van en UTC.
     - cron: "*/30 * * * *"
   workflow_dispatch: {}  # te permite lanzarlo a mano desde la pestaña Actions
 
