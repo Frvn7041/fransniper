@@ -25,7 +25,7 @@ CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 
 STATE_FILE = "state.json"
 
-HEARTBEAT_EVERY = 5
+HEARTBEAT_EVERY = 15
 
 PRODUCTS = [
     {
