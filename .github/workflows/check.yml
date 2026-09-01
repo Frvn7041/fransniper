@@ -22,6 +22,9 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Asegurar datos de zona horaria
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq tzdata
+
       - name: Ejecutar comprobación
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
