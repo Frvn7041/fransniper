@@ -5,10 +5,10 @@ por Telegram en cuanto alguna pasa de "PRÓXIMAMENTE / Avísame" a
 disponibilidad como el heartbeat) incluye el estado de LOS 3 PRODUCTOS,
 para que siempre tengas claro cuál está disponible y cuál no.
 
-Además, cada N ejecuciones (por defecto 5, ver HEARTBEAT_EVERY más
-abajo), manda un mensaje de "sigo vigilando" con el estado actual de
-los 3 productos, tanto si hay cambios como si no — así sabes que el
-robot sigue vivo.
+El aviso de disponibilidad SIEMPRE se manda, a cualquier hora, sin
+excepción. El heartbeat de "sigo vigilando" respeta un horario de
+silencio nocturno (no molesta por la noche), y aun así sigue
+comprobando la web con normalidad durante esas horas.
 
 No hace falta tocar nada salvo, si GAME cambia el texto de la web,
 las listas UNAVAILABLE_HINTS / AVAILABLE_HINTS de más abajo.
@@ -19,6 +19,8 @@ import re
 import sys
 import json
 import urllib.request
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
@@ -26,6 +28,13 @@ CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 STATE_FILE = "state.json"
 
 HEARTBEAT_EVERY = 15
+
+# Horario de silencio para el heartbeat (hora de España, se ajusta solo
+# con el cambio de horario verano/invierno). El aviso de disponibilidad
+# NUNCA se ve afectado por esto, siempre se manda.
+QUIET_HOURS_START = 23  # 23:00
+QUIET_HOURS_END = 8     # 08:00
+TIMEZONE = "Europe/Madrid"
 
 PRODUCTS = [
     {
@@ -53,6 +62,15 @@ UNAVAILABLE_HINTS = [
 AVAILABLE_HINTS = [
     "añadir a la cesta", "anadir a la cesta", "reservar", "comprar ahora",
 ]
+
+
+def is_quiet_hours_now() -> bool:
+    now_local = datetime.now(ZoneInfo(TIMEZONE))
+    hour = now_local.hour
+    # Rango que cruza medianoche (ej. 23 -> 8)
+    if QUIET_HOURS_START > QUIET_HOURS_END:
+        return hour >= QUIET_HOURS_START or hour < QUIET_HOURS_END
+    return QUIET_HOURS_START <= hour < QUIET_HOURS_END
 
 
 def fetch_page(url: str) -> str:
@@ -118,9 +136,6 @@ def main() -> None:
     results = []
     any_new_availability = False
 
-    # --- Cada producto se procesa en SU PROPIA iteración del bucle,
-    # --- con SU PROPIO html, SU PROPIO is_available_now y SU PROPIO
-    # --- was_available_before. Ninguno depende de los otros dos.
     for product in PRODUCTS:
         pid = product["id"]
         try:
@@ -135,7 +150,6 @@ def main() -> None:
 
         print(f"[{pid}] Disponible ahora: {is_available_now} | Antes: {was_available_before}")
 
-        # OR, no AND: basta con que ESTE producto cambie para disparar el aviso.
         if is_available_now and not was_available_before:
             any_new_availability = True
 
@@ -147,8 +161,11 @@ def main() -> None:
         print("Aviso de disponibilidad enviado por Telegram.")
 
     if is_heartbeat_run:
-        send_telegram_message(f"🤖 Sigo vigilando (intento nº {meta['run_count']}):\n\n" + format_status_block(results))
-        print("Heartbeat enviado por Telegram.")
+        if is_quiet_hours_now():
+            print("Heartbeat omitido (horario de silencio nocturno).")
+        else:
+            send_telegram_message(f"🤖 Sigo vigilando (intento nº {meta['run_count']}):\n\n" + format_status_block(results))
+            print("Heartbeat enviado por Telegram.")
 
     state["_meta"] = meta
     save_state(state)
